@@ -3,7 +3,6 @@
     "description": "ipfs-storage php sdk",
     "type": "library",
     "keywords": ["ipfs-storage","php"],
-    "license": "",
     "authors": [
         {
             "name": "yyx",
