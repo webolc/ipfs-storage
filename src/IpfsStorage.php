@@ -4,6 +4,7 @@ namespace webolc\IpfsStorage;
 use Exception;
 use think\admin\Storage;
 use think\admin\extend\HttpExtend;
+use think\Container;
 
 /**
  * IPFS服务器存储
@@ -45,7 +46,11 @@ class IpfsStorage extends Storage
      */
     public static function instance(?string $name = null)
     {
-        return parent::instance('ipfs');
+        if (class_exists($object = "webolc\\IpfsStorage\\IpfsStorage")) {
+            return Container::getInstance()->make($object);
+        } else {
+            throw new Exception("File driver IpfsStorage does not exist.");
+        }
     }
 
     /**
@@ -58,8 +63,9 @@ class IpfsStorage extends Storage
      */
     public function set(string $name, string $file, bool $safe = false, ?string $attname = null): array
     {
-        $data = ['key' => $name, 'fileName' => $name];
-        $file = ['field' => "file", 'name' => $name, 'content' => $file];
+        $time = time();
+        $file = ['field' => "file", 'name' => $name, 'content' => $file,''];
+        $data = ['sign' => $this->getSign($time),'script_key'=>sysconf('storage.ipfs_secret_key'),'time'=>$time,'filename'=>$name];
         $result = HttpExtend::submit($this->upload(), $data, $file, [], 'POST', false);
         return json_decode($result, true);
     }
@@ -72,7 +78,7 @@ class IpfsStorage extends Storage
      */
     public function get(string $name, bool $safe = false): string
     {
-        $url = $this->url($name, $safe) . "?e=" . time();
+        $url = $this->prefix.'/file/'. $name . "?e=" . time();
         return static::curlGet($url);
     }
 
@@ -84,7 +90,9 @@ class IpfsStorage extends Storage
      */
     public function del(string $name, bool $safe = false): bool
     {
-        return json_decode(HttpExtend::post($this->prefix.'/flapi/files/rm', ['arg'=>$name]), true);
+        $time = time();
+        $data = ['sign' => $this->getSign($time),'script_key'=>sysconf('storage.ipfs_secret_key'),'time'=>$time,'filename'=>$name];
+        return json_decode(HttpExtend::post($this->prefix.'/del/', $data), true);
     }
 
     /**
@@ -107,7 +115,7 @@ class IpfsStorage extends Storage
      */
     public function url(string $name, bool $safe = false, ?string $attname = null): string
     {
-        return "{$this->prefix}/flipfs/{$name}";
+        return $this->path($name);
     }
 
     /**
@@ -118,7 +126,7 @@ class IpfsStorage extends Storage
      */
     public function path(string $name, bool $safe = false): string
     {
-        return $this->url($name, $safe);
+        return $this->prefix.'/file/'.$name;
     }
 
     /**
@@ -130,8 +138,10 @@ class IpfsStorage extends Storage
      */
     public function info(string $name, bool $safe = false, ?string $attname = null): array
     {
-        $data = json_decode(HttpExtend::post($this->prefix.'/flapi/files/stat', ['arg'=>$name]), true);
-        return isset($data['Hash']) ? ['file' => $name, 'url' => $this->url($name, $safe, $attname), 'key' => $name] : [];
+        $time = time();
+        $data = ['sign' => $this->getSign($time),'script_key'=>sysconf('storage.ipfs_secret_key'),'time'=>$time,'filename'=>$name];
+        $data = json_decode(HttpExtend::post($this->prefix.'/info', $time), true);
+        return $data['code'] == 1? $data['data']: [];
     }
 
     /**
@@ -140,6 +150,22 @@ class IpfsStorage extends Storage
      */
     public function upload(): string
     {
-        return "{$this->prefix}/flapi/add";
+        return "{$this->prefix}/api/add";
+    }
+    
+    /**
+     * 获取签名
+     */
+    public function getSign($time){
+        $script_key = $this->getScript();
+        $public_key = sysconf('storage.ipfs_public_key') ?: '';
+        return md5($script_key.'#'.$time.'#'.$public_key);
+    }
+    
+    /**
+     * 获取Script
+     */
+    public function getScript(){
+        return sysconf('storage.ipfs_secret_key') ?: '';
     }
 }
