@@ -65,7 +65,7 @@ class IpfsStorage extends Storage
     {
         $time = time();
         $file = ['field' => "file", 'name' => $name, 'content' => $file,''];
-        $data = ['sign' => $this->getSign($time),'script_key'=>sysconf('storage.ipfs_secret_key'),'time'=>$time,'filename'=>$name];
+        $data = ['sign' => $this->getSign($time),'api_user'=>$this->getUser(),'time'=>$time,'filename'=>$name];
         $result = HttpExtend::submit($this->upload(), $data, $file, [], 'POST', false);
         return json_decode($result, true);
     }
@@ -91,7 +91,7 @@ class IpfsStorage extends Storage
     public function del(string $name, bool $safe = false): bool
     {
         $time = time();
-        $data = ['sign' => $this->getSign($time),'script_key'=>sysconf('storage.ipfs_secret_key'),'time'=>$time,'filename'=>$name];
+        $data = ['sign' => $this->getSign($time),'api_user'=>$this->getUser(),'time'=>$time,'filename'=>$name];
         return json_decode(HttpExtend::post($this->prefix.'/del/', $data), true);
     }
 
@@ -139,7 +139,7 @@ class IpfsStorage extends Storage
     public function info(string $name, bool $safe = false, ?string $attname = null): array
     {
         $time = time();
-        $data = ['sign' => $this->getSign($time),'script_key'=>sysconf('storage.ipfs_secret_key'),'time'=>$time,'filename'=>$name];
+        $data = ['sign' => $this->getSign($time),'api_user'=>$this->getUser(),'time'=>$time,'filename'=>$name];
         $data = json_decode(HttpExtend::post($this->prefix.'/info', $time), true);
         return $data['code'] == 1? $data['data']: [];
     }
@@ -157,15 +157,15 @@ class IpfsStorage extends Storage
      * 获取签名
      */
     public function getSign($time){
-        $script_key = $this->getScript();
+        $api_user = $this->getUser();
         $public_key = sysconf('storage.ipfs_public_key') ?: '';
-        return md5($script_key.'#'.$time.'#'.$public_key);
+        return md5($api_user.'#'.$time.'#'.$public_key);
     }
     
     /**
      * 获取Script
      */
-    public function getScript(){
-        return sysconf('storage.ipfs_secret_key') ?: '';
+    public function getUser(){
+        return sysconf('storage.ipfs_api_user') ?: '';
     }
 }
